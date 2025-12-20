@@ -96,9 +96,11 @@
         .icon-btn:hover { transform: scale(1.1); }
 
         .btn-add-cat { background: var(--accent-yellow); color: #bfa356; }
+        
         .btn-settings { background: #f0f0f0; color: #888; }
         .btn-settings.connected { background: #d1fae5; color: #10b981; }
-        .btn-settings.error { background: #fee2e2; color: #ef4444; }
+        /* 强制红色背景，解决样式冲突 */
+        .btn-settings.error { background: #fee2e2 !important; color: #ef4444 !important; }
 
         /* --- 主内容区 --- */
         .content-area {
@@ -306,7 +308,6 @@
                 <button class="btn-modal btn-save" onclick="saveSettings()">保存并连接</button>
             </div>
 
-            <!-- 增加日志区域，方便看错误 -->
             <div class="log-box" id="logBox">
                 <div class="log-line">等待配置连接...</div>
             </div>
@@ -325,23 +326,20 @@
 
         // --- 初始化 ---
         function init() {
-            // 1. 无论如何，先加载本地缓存！防止白屏！
+            // 1. 优先加载本地
             const localData = localStorage.getItem('kakaWishlist');
             if(localData) {
                 try {
                     appData = JSON.parse(localData);
-                    log("已加载本地缓存数据");
-                } catch(e) {
-                    console.error("本地数据损坏", e);
-                }
+                    log("已加载本地数据");
+                } catch(e) {}
             }
-            renderAll(); // 先显示本地的
+            renderAll();
 
-            // 2. 然后再尝试连接 GitHub
+            // 2. 尝试连接 GitHub
             const config = localStorage.getItem('kaka_gh_config');
             if (config) {
                 ghConfig = JSON.parse(config);
-                // 延迟一点加载，避免阻塞 UI
                 setTimeout(loadFromGithub, 500);
             }
         }
@@ -350,70 +348,58 @@
         async function loadFromGithub() {
             if (!ghConfig) return;
             updateStatusIcon('loading');
-            log('正在连接 GitHub...');
             
+            // 检查本地是否有未保存的更改
+            const isDirty = localStorage.getItem('kaka_unsaved') === 'true';
+            if(isDirty) {
+                log('本地有未保存数据，跳过下载，尝试重新上传...', 'orange');
+                saveToGithub(); // 尝试把本地的推上去，而不是把云端的拉下来覆盖
+                return;
+            }
+
+            log('正在连接 GitHub...');
             const url = `https://api.github.com/repos/${ghConfig.user}/${ghConfig.repo}/contents/data.json?t=${Date.now()}`;
             
             try {
-                const res = await fetch(url, {
-                    headers: { 'Authorization': `token ${ghConfig.token}` }
-                });
+                const res = await fetch(url, { headers: { 'Authorization': `token ${ghConfig.token}` } });
                 
-                // 自动修复：如果文件不存在 (404)，自动创建
                 if (res.status === 404) {
-                    log('未找到云端文件，尝试初始化...', 'orange');
-                    await saveToGithub(true); // 强制初始化
+                    log('云端文件缺失，尝试初始化...', 'orange');
+                    await saveToGithub(true);
                     return;
                 }
                 
-                if (res.status === 401) throw new Error('权限错误(401): Token 填写错误或已过期');
-                if (res.status === 404) throw new Error('仓库错误(404): 找不到仓库，请检查用户名和仓库名');
+                if (res.status === 401) throw new Error('401 权限拒绝: Token 可能没勾选 repo 权限');
+                if (res.status === 403) throw new Error('403 禁止访问: Token 权限不足');
                 if (!res.ok) throw new Error(`连接错误 (${res.status})`);
                 
                 const data = await res.json();
                 currentFileSha = data.sha;
                 
-                // 解析内容
                 try {
                     const content = decodeURIComponent(escape(window.atob(data.content)));
                     if (content && content.trim() && content !== '{}') {
                         appData = JSON.parse(content);
-                        // 成功拿到云端数据后，更新本地缓存和界面
                         localStorage.setItem('kakaWishlist', JSON.stringify(appData));
                         renderAll();
                         log('✅ 云端同步成功！', 'green');
                         updateStatusIcon('success');
-                    } else {
-                        log('云端文件为空，使用当前数据');
                     }
-                } catch (parseError) {
-                    log('云端数据解析失败，跳过');
-                }
-                
-                // 确保 UI 状态正确
-                if(!currentCategory || !appData[currentCategory]) {
-                    const keys = Object.keys(appData);
-                    currentCategory = keys.length > 0 ? keys[0] : "";
-                }
-                renderNav(); 
+                } catch (parseError) {}
                 
             } catch (e) {
                 console.error(e);
-                log('❌ 同步失败: ' + e.message, 'red');
+                log('❌ ' + e.message, 'red');
                 updateStatusIcon('error');
-                // 注意：这里失败了不覆盖 appData，所以你本地的数据还在
             }
         }
 
         async function saveToGithub(isInit = false) {
-            // 本地先存一份 (双重保险)
+            // 1. 标记为“未保存” (dirty)
             localStorage.setItem('kakaWishlist', JSON.stringify(appData));
-            
-            if (!ghConfig) {
-                if(!isInit) log("未配置 GitHub，仅保存到本地", "orange");
-                return;
-            }
+            if(!isInit) localStorage.setItem('kaka_unsaved', 'true');
 
+            if (!ghConfig) return;
             if(!isInit) updateStatusIcon('loading');
 
             const url = `https://api.github.com/repos/${ghConfig.user}/${ghConfig.repo}/contents/data.json`;
@@ -423,22 +409,20 @@
                 const contentBase64 = window.btoa(unescape(encodeURIComponent(contentStr)));
                 
                 const body = {
-                    message: isInit ? "Initialize Kaka Wishlist" : "update via Kaka Web",
+                    message: isInit ? "Init" : "Update",
                     content: contentBase64
                 };
                 
-                // 关键修复：如果在 save 之前 sha 为空，尝试先获取一次 sha，防止冲突
+                // 尝试获取最新 SHA 防止冲突
                 if (!isInit && !currentFileSha) {
-                     log("正在获取最新文件指纹...", "orange");
                      try {
                         const checkRes = await fetch(url, { headers: { 'Authorization': `token ${ghConfig.token}` }});
                         if(checkRes.ok) {
                             const checkData = await checkRes.json();
                             currentFileSha = checkData.sha;
                         }
-                     } catch(e) {} // 忽略获取失败，直接尝试写入
+                     } catch(e) {}
                 }
-
                 if (currentFileSha && !isInit) body.sha = currentFileSha;
 
                 const res = await fetch(url, {
@@ -453,17 +437,20 @@
                 if (res.ok) {
                     const data = await res.json();
                     currentFileSha = data.content.sha;
+                    // 2. 保存成功！清除“未保存”标记
+                    localStorage.removeItem('kaka_unsaved');
                     log('✅ 保存成功 ' + new Date().toLocaleTimeString(), 'green');
                     updateStatusIcon('success');
                 } else {
-                    const errData = await res.json();
-                    throw new Error(errData.message || '未知错误');
+                    const err = await res.json();
+                    throw new Error(`${res.status} ${err.message}`);
                 }
             } catch (e) {
                 console.error(e);
                 log('❌ 保存失败: ' + e.message, 'red');
                 updateStatusIcon('error');
-                alert("保存到云端失败！\n请检查设置里的日志。\n数据已暂时保存在本地。");
+                // 弹窗强提醒
+                if(!isInit) alert(`无法保存到 GitHub！\n原因：${e.message}\n\n可能原因：\n1. Token 没有勾选 'repo' 权限 (最常见)\n2. Token 已过期`);
             }
         }
 
@@ -503,24 +490,18 @@
                 document.getElementById('ghToken').value = ghConfig.token;
             }
         }
-        
         function closeSettings() { document.getElementById('settingsModal').style.display = 'none'; }
-
+        
         function saveSettings() {
             const user = document.getElementById('ghUser').value.trim();
             const repo = document.getElementById('ghRepo').value.trim();
             const token = document.getElementById('ghToken').value.trim();
-
-            if (!user || !repo || !token) {
-                alert('请填写完整信息');
-                return;
-            }
-
+            if (!user || !repo || !token) return alert('请填写完整信息');
             const cleanRepo = repo.replace(`${user}/`, '').replace(/^\//, '');
-
             ghConfig = { user, repo: cleanRepo, token };
             localStorage.setItem('kaka_gh_config', JSON.stringify(ghConfig));
-            
+            // 清除旧的 dirty 标记，强制重新连接
+            localStorage.removeItem('kaka_unsaved');
             loadFromGithub(); 
         }
 
@@ -531,7 +512,6 @@
             navContainer.innerHTML = '';
             const cats = Object.keys(appData);
             if(cats.length > 0 && !cats.includes(currentCategory)) currentCategory = cats[0];
-
             cats.forEach(cat => {
                 const tab = document.createElement('div');
                 tab.className = `nav-tab ${cat === currentCategory ? 'active' : ''}`;
