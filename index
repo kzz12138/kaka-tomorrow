@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>咔咔的明天</title>
+    <!-- 引入图标库 -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            /* 高级粉白黄配色 */
+            --bg-color: #f9fbfd; /* 极淡的灰蓝白 */
+            --primary-pink: #ffdae0; /* 樱花粉 */
+            --deep-pink: #ff8fa3; /* 深一点的粉 */
+            --accent-yellow: #fff4bd; /* 嫩黄 */
+            --text-main: #5e5e5e; /* 深灰 */
+            --text-light: #a0a0a0;
+            --white: #ffffff;
+            --shadow: 0 8px 20px rgba(255, 143, 163, 0.15); /* 粉色调的投影 */
+            --radius: 16px;
+        }
+
+        * {
+            box-sizing: border-box;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            padding-bottom: 80px; 
+        }
+
+        /* --- 顶部导航栏 --- */
+        .navbar-container {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            padding: 15px 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            display: flex;
+            align-items: center;
+            justify-content: space-between; /* 两端对齐 */
+        }
+
+        .nav-left {
+            display: flex;
+            align-items: center;
+            overflow-x: auto;
+            scrollbar-width: none;
+            flex: 1;
+            padding-right: 10px;
+        }
+        .nav-left::-webkit-scrollbar { display: none; }
+
+        .nav-tab {
+            white-space: nowrap;
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--text-light);
+            cursor: pointer;
+            transition: all 0.3s;
+            background: transparent;
+            margin-right: 10px;
+        }
+
+        .nav-tab:hover {
+            color: var(--deep-pink);
+            background: rgba(255, 218, 224, 0.3);
+        }
+
+        .nav-tab.active {
+            background-color: var(--primary-pink);
+            color: #7a404b;
+            box-shadow: 0 4px 10px rgba(255, 143, 163, 0.4);
+            transform: translateY(-1px);
+        }
+
+        /* 按钮组 */
+        .nav-actions {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: none;
+            transition: transform 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .icon-btn:hover { transform: scale(1.1); }
+
+        .btn-add-cat { background: var(--accent-yellow); color: #bfa356; }
+        .btn-settings { background: #f0f0f0; color: #888; }
+        .btn-settings.connected { background: #d1fae5; color: #10b981; } /* 连接成功变绿 */
+
+        /* --- 主内容区 --- */
+        .content-area {
+            max-width: 800px;
+            margin: 30px auto;
+            padding: 0 20px;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- 输入框区域 --- */
+        .input-wrapper {
+            background: var(--white);
+            border-radius: var(--radius);
+            padding: 8px 15px;
+            display: flex;
+            align-items: center;
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .input-wrapper input {
+            flex: 1;
+            border: none;
+            font-size: 16px;
+            padding: 10px;
+            color: var(--text-main);
+            background: transparent;
+        }
+        .input-wrapper input::placeholder { color: #d1d1d1; }
+
+        .add-item-btn {
+            background: linear-gradient(135deg, var(--primary-pink), #ffc2d1);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .add-item-btn:hover { transform: scale(1.05); }
+
+        /* --- 列表条目 --- */
+        .todo-list { list-style: none; padding: 0; margin: 0; }
+
+        .todo-item {
+            background: var(--white);
+            margin-bottom: 15px;
+            padding: 18px 20px;
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+            transition: all 0.4s;
+            border-left: 4px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .todo-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+            border-left-color: var(--primary-pink);
+        }
+
+        .checkbox {
+            width: 22px;
+            height: 22px;
+            border: 2px solid #e0e0e0;
+            border-radius: 50%;
+            margin-right: 15px;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s;
+            flex-shrink: 0;
+        }
+
+        .checkbox::after {
+            content: '\f00c';
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            font-size: 12px;
+            color: white;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            transition: transform 0.2s;
+        }
+
+        .item-text {
+            flex: 1;
+            font-size: 16px;
+            color: var(--text-main);
+            transition: all 0.3s;
+            word-break: break-all;
+            line-height: 1.5;
+        }
+
+        .delete-btn {
+            color: #ffb7b7;
+            cursor: pointer;
+            padding: 8px;
+            opacity: 0;
+            transition: all 0.2s;
+            font-size: 18px;
+        }
+        
+        @media (max-width: 768px) { .delete-btn { opacity: 1; } }
+        .todo-item:hover .delete-btn { opacity: 1; }
+        .delete-btn:hover { color: #ff6b81; transform: scale(1.1); }
+
+        .todo-item.completed {
+            background: #fcfcfc;
+            box-shadow: none;
+            border: 1px solid #f0f0f0;
+            opacity: 0.7;
+        }
+
+        .todo-item.completed .checkbox {
+            background-color: var(--accent-yellow);
+            border-color: var(--accent-yellow);
+        }
+        .todo-item.completed .checkbox::after { transform: translate(-50%, -50%) scale(1); color: #bfa356; }
+        .todo-item.completed .item-text { text-decoration: line-through; color: #ccc; }
+
+        .empty-state {
+            text-align: center;
+            color: #ccc;
+            margin-top: 50px;
+            font-weight: 300;
+            font-size: 14px;
+        }
+
+        /* --- 模态框 (Settings) --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            animation: popIn 0.3s ease;
+        }
+        @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        
+        .modal h3 { margin-top: 0; color: #555; text-align: center; }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 12px; color: #999; margin-bottom: 5px; }
+        .form-group input {
+            width: 100%; padding: 10px; border: 1px solid #eee; border-radius: 8px;
+            font-size: 14px; background: #fcfcfc;
+        }
+        
+        .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
+        .btn-modal {
+            flex: 1; padding: 10px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold;
+        }
+        .btn-cancel { background: #f0f0f0; color: #666; }
+        .btn-save { background: var(--deep-pink); color: white; }
+
+        .status-msg { font-size: 12px; text-align: center; margin-top: 10px; height: 15px; }
+    </style>
+</head>
+<body>
+
+    <!-- 顶部导航 -->
+    <div class="navbar-container">
+        <div class="nav-left" id="navItems">
+            <!-- JS 生成 Tab -->
+        </div>
+        
+        <div class="nav-actions">
+            <button class="icon-btn btn-add-cat" onclick="addCategory()" title="添加新分类">
+                <i class="fas fa-plus"></i>
+            </button>
+            <button class="icon-btn btn-settings" id="settingsBtn" onclick="openSettings()" title="GitHub设置">
+                <i class="fas fa-cog"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- 主内容区 -->
+    <div class="content-area">
+        <div class="input-wrapper">
+            <input type="text" id="todoInput" placeholder="添加新的愿望..." onkeypress="handleEnter(event)">
+            <button class="add-item-btn" onclick="addItem()">
+                <i class="fas fa-arrow-up"></i>
+            </button>
+        </div>
+        <ul class="todo-list" id="todoList"></ul>
+        <div id="emptyState" class="empty-state" style="display: none;">还没有记录，开始写下你的计划吧 ~</div>
+    </div>
+
+    <!-- 设置模态框 -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal">
+            <h3>☁️ GitHub 同步设置</h3>
+            <div class="form-group">
+                <label>GitHub 用户名 (Username)</label>
+                <input type="text" id="ghUser" placeholder="例如: kaka-tomorrow">
+            </div>
+            <div class="form-group">
+                <label>仓库名称 (Repository)</label>
+                <input type="text" id="ghRepo" placeholder="例如: my-wishlist">
+            </div>
+            <div class="form-group">
+                <label>Access Token (ghp_...)</label>
+                <input type="password" id="ghToken" placeholder="粘贴你的 Token">
+            </div>
+            <div class="status-msg" id="statusMsg"></div>
+            <div class="modal-btns">
+                <button class="btn-modal btn-cancel" onclick="closeSettings()">关闭</button>
+                <button class="btn-modal btn-save" onclick="saveSettings()">保存并同步</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 核心数据 ---
+        let appData = {
+            "电影": [{ id: 1, text: "示例: 布达佩斯大饭店", done: false }],
+            "电视剧": [], "综艺": [], "音频": [], "游戏": []
+        };
+        let currentCategory = "电影";
+        let ghConfig = null;
+        let currentFileSha = null;
+
+        // --- 初始化 ---
+        function init() {
+            // 1. 读取本地配置
+            const config = localStorage.getItem('kaka_gh_config');
+            if (config) {
+                ghConfig = JSON.parse(config);
+                updateSettingsBtn(true);
+                // 2. 如果有配置，尝试从 GitHub 加载
+                loadFromGithub();
+            } else {
+                // 没配置就读本地缓存作为 fallback
+                const localData = localStorage.getItem('kakaWishlist');
+                if(localData) appData = JSON.parse(localData);
+                renderAll();
+            }
+        }
+
+        // --- GitHub 核心逻辑 ---
+        async function loadFromGithub() {
+            if (!ghConfig) return;
+            showStatus('正在从云端读取...');
+            
+            const url = `https://api.github.com/repos/${ghConfig.user}/${ghConfig.repo}/contents/data.json?t=${Date.now()}`;
+            
+            try {
+                const res = await fetch(url, {
+                    headers: { 'Authorization': `token ${ghConfig.token}` }
+                });
+                
+                if (res.status === 404) {
+                    showStatus('连接成功！但 data.json 不存在 (首次保存时会自动创建)', 'orange');
+                    renderAll();
+                    return;
+                }
+                
+                if (!res.ok) throw new Error('连接失败，请检查配置');
+                
+                const data = await res.json();
+                currentFileSha = data.sha;
+                
+                // 解码 Base64 (支持中文)
+                const content = decodeURIComponent(escape(window.atob(data.content)));
+                
+                // 如果文件内容为空，保持默认
+                if (content && content.trim() !== '' && content !== '{}') {
+                    appData = JSON.parse(content);
+                }
+                
+                renderAll();
+                showStatus('✅ 同步成功', 'green');
+                
+                // 确保有默认分类
+                if(!currentCategory || !appData[currentCategory]) {
+                    const keys = Object.keys(appData);
+                    currentCategory = keys.length > 0 ? keys[0] : "";
+                }
+                renderNav(); // 重新渲染导航
+                
+            } catch (e) {
+                console.error(e);
+                showStatus('❌ ' + e.message, 'red');
+            }
+        }
+
+        async function saveToGithub() {
+            // 本地先存一份防止丢
+            localStorage.setItem('kakaWishlist', JSON.stringify(appData));
+            
+            if (!ghConfig) return;
+
+            // 按钮转圈圈或者显示状态 (这里简化处理)
+            const settingsBtn = document.getElementById('settingsBtn');
+            const originalIcon = settingsBtn.innerHTML;
+            settingsBtn.innerHTML = '<i class="fas fa-sync fa-spin"></i>';
+
+            const url = `https://api.github.com/repos/${ghConfig.user}/${ghConfig.repo}/contents/data.json`;
+            
+            try {
+                // 编码
+                const contentStr = JSON.stringify(appData, null, 2);
+                const contentBase64 = window.btoa(unescape(encodeURIComponent(contentStr)));
+                
+                const body = {
+                    message: "update via Kaka Web",
+                    content: contentBase64
+                };
+                if (currentFileSha) body.sha = currentFileSha;
+
+                const res = await fetch(url, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${ghConfig.token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    currentFileSha = data.content.sha;
+                    settingsBtn.innerHTML = originalIcon; // 恢复图标
+                    console.log('Saved to GitHub');
+                } else {
+                    throw new Error('保存失败');
+                }
+            } catch (e) {
+                console.error(e);
+                settingsBtn.innerHTML = '<i class="fas fa-exclamation-triangle" style="color:red"></i>';
+                setTimeout(() => settingsBtn.innerHTML = originalIcon, 3000);
+            }
+        }
+
+        // --- 设置界面逻辑 ---
+        function openSettings() {
+            document.getElementById('settingsModal').style.display = 'flex';
+            if (ghConfig) {
+                document.getElementById('ghUser').value = ghConfig.user;
+                document.getElementById('ghRepo').value = ghConfig.repo;
+                document.getElementById('ghToken').value = ghConfig.token;
+            }
+        }
+        
+        function closeSettings() {
+            document.getElementById('settingsModal').style.display = 'none';
+        }
+
+        function saveSettings() {
+            const user = document.getElementById('ghUser').value.trim();
+            const repo = document.getElementById('ghRepo').value.trim();
+            const token = document.getElementById('ghToken').value.trim();
+
+            if (!user || !repo || !token) {
+                showStatus('请填写完整信息', 'red');
+                return;
+            }
+
+            ghConfig = { user, repo, token };
+            localStorage.setItem('kaka_gh_config', JSON.stringify(ghConfig));
+            updateSettingsBtn(true);
+            
+            // 尝试立即同步
+            loadFromGithub().then(() => {
+                // 如果成功加载，说明配置是对的
+                setTimeout(closeSettings, 1000);
+            });
+        }
+
+        function updateSettingsBtn(connected) {
+            const btn = document.getElementById('settingsBtn');
+            if(connected) btn.classList.add('connected');
+            else btn.classList.remove('connected');
+        }
+
+        function showStatus(msg, color = 'black') {
+            const el = document.getElementById('statusMsg');
+            el.textContent = msg;
+            el.style.color = color;
+        }
+
+
+        // --- 渲染与交互 (和之前类似，增加了自动 saveToGithub) ---
+        function renderAll() {
+            renderNav();
+            renderList();
+        }
+
+        function renderNav() {
+            const navContainer = document.getElementById('navItems');
+            navContainer.innerHTML = '';
+            
+            const cats = Object.keys(appData);
+            if(cats.length > 0 && !cats.includes(currentCategory)) currentCategory = cats[0];
+
+            cats.forEach(cat => {
+                const tab = document.createElement('div');
+                tab.className = `nav-tab ${cat === currentCategory ? 'active' : ''}`;
+                tab.textContent = cat;
+                tab.onclick = () => { currentCategory = cat; renderAll(); };
+                tab.ondblclick = () => deleteCategory(cat); // 双击删除
+                navContainer.appendChild(tab);
+            });
+        }
+
+        function renderList() {
+            const listContainer = document.getElementById('todoList');
+            const emptyState = document.getElementById('emptyState');
+            const input = document.getElementById('todoInput');
+            
+            listContainer.innerHTML = '';
+            
+            if (!currentCategory) {
+                emptyState.style.display = 'block';
+                emptyState.textContent = "👆 点击 + 号创建第一个分类吧";
+                input.disabled = true;
+                return;
+            } else {
+                input.disabled = false;
+                input.placeholder = `在“${currentCategory}”添加愿望...`;
+            }
+
+            const items = appData[currentCategory] || [];
+            emptyState.style.display = items.length === 0 ? 'block' : 'none';
+            if (items.length === 0) emptyState.textContent = "还没有内容，快许个愿吧 ✨";
+
+            const sortedItems = [...items].sort((a, b) => a.done - b.done);
+
+            sortedItems.forEach(item => {
+                const li = document.createElement('li');
+                li.className = `todo-item ${item.done ? 'completed' : ''}`;
+                li.innerHTML = `
+                    <div class="checkbox" onclick="toggleItem(${item.id})"></div>
+                    <span class="item-text">${item.text}</span>
+                    <i class="fas fa-times delete-btn" onclick="deleteItem(${item.id})"></i>
+                `;
+                listContainer.appendChild(li);
+            });
+        }
+
+        // --- 增删改查 ---
+        function addItem() {
+            const input = document.getElementById('todoInput');
+            const text = input.value.trim();
+            if (!text || !currentCategory) return;
+
+            appData[currentCategory].push({ id: Date.now(), text: text, done: false });
+            input.value = '';
+            renderList();
+            saveToGithub(); // 保存!
+        }
+
+        function toggleItem(id) {
+            const item = appData[currentCategory].find(i => i.id === id);
+            if (item) {
+                item.done = !item.done;
+                renderList();
+                saveToGithub(); // 保存!
+            }
+        }
+
+        function deleteItem(id) {
+            if(confirm("确定放弃这个愿望吗？")) {
+                appData[currentCategory] = appData[currentCategory].filter(i => i.id !== id);
+                renderList();
+                saveToGithub(); // 保存!
+            }
+        }
+
+        function addCategory() {
+            const name = prompt("输入新分类名称:");
+            if (name && name.trim()) {
+                const clean = name.trim();
+                if (appData[clean]) return alert("已存在");
+                appData[clean] = [];
+                currentCategory = clean;
+                renderAll();
+                saveToGithub(); // 保存!
+            }
+        }
+
+        function deleteCategory(cat) {
+            if(confirm(`确定删除“${cat}”及其中所有数据吗？`)) {
+                delete appData[cat];
+                renderAll();
+                saveToGithub(); // 保存!
+            }
+        }
+
+        function handleEnter(e) { if (e.key === 'Enter') addItem(); }
+
+        // 启动
+        init();
+    </script>
+</body>
+</html>
